@@ -1,0 +1,80 @@
+import logging
+import random
+from telegram.ext import Updater, CommandHandler, MessageHandler, Filters
+
+logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+questions = {
+    "Какая столица России?": "Москва",
+    "Сколько будет 2 + 2?": "4",
+    "Какой язык программирования мы используем?": "Python",
+    "Сколько планет в солнечной системе?": "8"
+}
+
+
+def quiz(update, context):
+    if not context.user_data.get('remaining_questions'):
+        update.message.reply_text("Все вопросы были заданы. Игра завершена.")
+        update.message.reply_text("Хотите сыграть еще раз? Введите /start для начала новой игры.")
+        return
+
+    question = random.choice(context.user_data['remaining_questions'])
+
+    context.user_data['remaining_questions'].remove(question)
+
+    context.user_data['correct_answer'] = questions[question]
+
+    update.message.reply_text(question)
+
+
+def start(update, context):
+    remaining_questions = list(questions.keys())
+    random.shuffle(remaining_questions)
+
+    context.user_data['remaining_questions'] = remaining_questions
+
+    update.message.reply_text(
+        "Привет! Давай сыграем в викторину. Я задам тебе несколько вопросов, а ты отвечай на них.")
+    quiz(update, context)
+
+
+def check_answer(update, context):
+    user_answer = update.message.text.strip()
+
+    correct_answer = context.user_data.get('correct_answer')
+
+    if correct_answer:
+        if user_answer.lower() == correct_answer.lower():
+            update.message.reply_text("Правильно! 🎉")
+        else:
+            update.message.reply_text(f"Неправильно 😞 Правильный ответ: {correct_answer}")
+
+        quiz(update, context)
+    else:
+        update.message.reply_text("Чтобы ответить, сначала начните игру с помощью команды /start.")
+
+
+def end_quiz(update, context):
+    update.message.reply_text("Спасибо за игру! Если хочешь сыграть еще раз, введи /start.")
+
+
+def main():
+    token = '6818622859:AAH-51KduXYkDgJAgE-vP-tS3e4PzGnTYws'
+    updater = Updater(token, use_context=True)
+    dp = updater.dispatcher
+
+    dp.add_handler(CommandHandler("start", start))
+
+    dp.add_handler(MessageHandler(Filters.regex(r'^начать$'), quiz))
+
+    dp.add_handler(MessageHandler(Filters.text & ~Filters.command, check_answer))
+
+    dp.add_handler(MessageHandler(Filters.regex(r'^стоп$'), end_quiz))
+
+    updater.start_polling()
+    updater.idle()
+
+
+if __name__ == '__main__':
+    main()
